@@ -1,67 +1,91 @@
+const API_KEY = "sk-openrouter-REPLACE_THIS_WITH_YOUR_KEY";
+const MODEL = "meta-llama/llama-3.1-8b-instruct";
 
-(async () => {
-  const passkey = prompt("Enter passkey");
-  if (passkey !== "2012") return;
+const chatContainer = document.getElementById("chat-container");
+const dragBar = document.getElementById("drag-bar");
+const closeBtn = document.getElementById("close-btn");
+const messagesDiv = document.getElementById("messages");
+const input = document.getElementById("input");
+const form = document.getElementById("form");
+const scanBtn = document.getElementById("scan");
 
-  if (document.getElementById("chat-container")) {
-    document.getElementById("chat-container").classList.remove("chat-hidden");
-    return;
+closeBtn.onclick = () => {
+  chatContainer.style.display = "none";
+};
+
+let offsetX, offsetY, isDragging = false;
+dragBar.addEventListener("mousedown", (e) => {
+  isDragging = true;
+  offsetX = e.clientX - chatContainer.offsetLeft;
+  offsetY = e.clientY - chatContainer.offsetTop;
+});
+document.addEventListener("mousemove", (e) => {
+  if (isDragging) {
+    chatContainer.style.left = `${e.clientX - offsetX}px`;
+    chatContainer.style.top = `${e.clientY - offsetY}px`;
+    chatContainer.style.bottom = "auto";
+    chatContainer.style.right = "auto";
   }
+});
+document.addEventListener("mouseup", () => isDragging = false);
 
-  const css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = "style.css";
-  document.head.appendChild(css);
-
-  const html = await fetch("index.html").then(res => res.text());
+const appendMessage = (text, className) => {
   const div = document.createElement("div");
-  div.innerHTML = html;
-  document.body.appendChild(div.querySelector("#chat-container"));
+  div.className = `msg ${className}`;
+  div.textContent = text;
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+};
 
-  const log = document.getElementById("chat-log");
-  const input = document.getElementById("chat-input");
-  const sendBtn = document.getElementById("send-btn");
-  const scanBtn = document.getElementById("scan-btn");
-  const closeBtn = document.getElementById("close-chat");
+async function sendToAI(prompt) {
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + API_KEY
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: "system", content: "You are a helpful assistant." },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
 
-  closeBtn.onclick = () => {
-    document.getElementById("chat-container").classList.add("chat-hidden");
-  };
-
-  const sendMessage = async () => {
-    const userInput = input.value.trim();
-    if (!userInput) return;
-
-    log.innerHTML += `<div><b>You:</b> ${userInput}</div>`;
-    input.value = "";
-
-    log.innerHTML += `<div><i>Thinking...</i></div>`;
-    log.scrollTop = log.scrollHeight;
-
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer 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"
-        },
-        body: JSON.stringify({
-          model: "meta-llama/llama-3.1-8b-instruct:free",
-          messages: [{ role: "user", content: userInput }]
-        })
-      });
-
-      const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content || "No response.";
-      log.innerHTML += `<div><b>AI:</b> ${reply}</div>`;
-      log.scrollTop = log.scrollHeight;
-    } catch (e) {
-      log.innerHTML += `<div><b>Error:</b> ${e.message}</div>`;
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API Error: ${response.status} ${errorText}`);
     }
-  };
 
-  sendBtn.onclick = sendMessage;
-  scanBtn.onclick = () => {
-    input.value = document.body.innerText.slice(0, 5000);
-  };
-})();
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    appendMessage("Bot: " + (reply || "(No reply)"), "bot");
+
+  } catch (err) {
+    appendMessage("Bot: [Error: " + err.message + "]", "bot");
+  }
+}
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const userMsg = input.value.trim();
+  if (!userMsg) return;
+  appendMessage("You: " + userMsg, "user");
+  input.value = "";
+  sendToAI(userMsg);
+});
+
+scanBtn.addEventListener("click", () => {
+  const elements = [...document.body.querySelectorAll("*")];
+  const visibleText = elements
+    .filter(el => el.offsetParent !== null && el.innerText)
+    .map(el => el.innerText.trim())
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .slice(0, 1000);
+
+  appendMessage("You: [Scan Page]", "user");
+  sendToAI("Summarize this webpage text:\n" + visibleText);
+});
