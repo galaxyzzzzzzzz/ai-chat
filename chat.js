@@ -1,4 +1,4 @@
-const API_KEY = "sk-openrouter-REPLACE_THIS_WITH_YOUR_KEY";
+const API_KEY = "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";
 const MODEL = "meta-llama/llama-3.1-8b-instruct";
 
 const chatContainer = document.getElementById("chat-container");
