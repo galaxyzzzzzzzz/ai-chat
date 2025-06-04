@@ -1,6 +1,6 @@
 // chat.js
 
-const API_KEY = "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"; // make sure it's valid
+const API_KEY = "sk-openrouter-REPLACE_WITH_YOUR_KEY"; // make sure it's valid
 const MODEL = "meta-llama/llama-3.1-8b-instruct";
 
 window.addEventListener("DOMContentLoaded", () => {
