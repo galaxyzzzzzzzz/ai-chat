@@ -9,6 +9,33 @@
       height: 100%;
       font-family: Arial, sans-serif;
     }
+    #chat-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 350px;
+      max-height: 500px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      z-index: 9999;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      resize: both;
+    }
+    #drag-bar {
+      background: #333;
+      color: white;
+      padding: 8px;
+      cursor: move;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #close-btn {
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
     #chat {
       display: flex;
       flex-direction: column;
@@ -42,23 +69,49 @@
   </style>
 </head>
 <body>
-  <div id="chat">
-    <div id="messages"></div>
-    <form id="form">
-      <input type="text" id="input" placeholder="Ask something..." autocomplete="off" />
-      <button type="submit" id="send">Send</button>
-      <button type="button" id="scan">Scan Page</button>
-    </form>
+  <div id="chat-container">
+    <div id="drag-bar">✦ Drag <span id="close-btn">✕</span></div>
+    <div id="chat">
+      <div id="messages"></div>
+      <form id="form">
+        <input type="text" id="input" placeholder="Ask something..." autocomplete="off" />
+        <button type="submit" id="send">Send</button>
+        <button type="button" id="scan">Scan Page</button>
+      </form>
+    </div>
   </div>
 
   <script>
     const API_KEY = "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";
     const MODEL = "meta-llama/llama-3.1-8b-instruct";
 
+    const chatContainer = document.getElementById("chat-container");
+    const dragBar = document.getElementById("drag-bar");
+    const closeBtn = document.getElementById("close-btn");
     const messagesDiv = document.getElementById("messages");
     const input = document.getElementById("input");
     const form = document.getElementById("form");
     const scanBtn = document.getElementById("scan");
+
+    closeBtn.onclick = () => {
+      chatContainer.style.display = "none";
+    };
+
+    let offsetX, offsetY, isDragging = false;
+    dragBar.addEventListener("mousedown", (e) => {
+      isDragging = true;
+      offsetX = e.clientX - chatContainer.offsetLeft;
+      offsetY = e.clientY - chatContainer.offsetTop;
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (isDragging) {
+        chatContainer.style.left = `${e.clientX - offsetX}px`;
+        chatContainer.style.top = `${e.clientY - offsetY}px`;
+        chatContainer.style.bottom = "auto";
+        chatContainer.style.right = "auto";
+      }
+    });
+    document.addEventListener("mouseup", () => isDragging = false);
 
     const appendMessage = (text, className) => {
       const div = document.createElement("div");
@@ -109,14 +162,16 @@
     });
 
     scanBtn.addEventListener("click", () => {
-      const pageText = [...window.parent.document.body.querySelectorAll("*")]
-        .map(e => e.innerText || "")
+      const elements = [...document.body.querySelectorAll("*")];
+      const visibleText = elements
+        .filter(el => el.offsetParent !== null && el.innerText)
+        .map(el => el.innerText.trim())
         .join(" ")
         .replace(/\s+/g, " ")
         .slice(0, 1000);
 
       appendMessage("You: [Scan Page]", "user");
-      sendToAI("Summarize this webpage text:\n" + pageText);
+      sendToAI("Summarize this webpage text:\n" + visibleText);
     });
   </script>
 </body>
