@@ -1,105 +1,87 @@
-// chat.js
+(async () => {
+  if (document.getElementById("chat-container")) return;
 
-const API_KEY = "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"; // make sure it's valid
-const MODEL = "meta-llama/llama-3.1-8b-instruct";
+  const container = document.createElement("div");
+  container.innerHTML = `
+    <div id="chat-container" style="position:fixed;left:20px;bottom:20px;width:350px;height:500px;z-index:9999;background:white;border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,0.2);display:flex;flex-direction:column;border:1px solid #ccc;overflow:hidden;">
+      <div id="drag-bar" style="background:#333;color:white;padding:8px;cursor:move;display:flex;justify-content:space-between;align-items:center;">
+        ✦ Drag <span id="close-btn" style="cursor:pointer;">✕</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;">
+        <div id="messages" style="flex:1;overflow-y:auto;padding:10px;background:#f9f9f9;"></div>
+        <form id="form" style="display:flex;padding:10px;border-top:1px solid #ccc;background:white;">
+          <input type="text" id="input" placeholder="Ask something..." style="flex:1;padding:10px;font-size:14px;" />
+          <button type="submit" id="send" style="margin-left:5px;padding:10px;">Send</button>
+          <button type="button" id="scan" style="margin-left:5px;padding:10px;">Scan</button>
+        </form>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(container);
 
-window.addEventListener("DOMContentLoaded", () => {
+  let history = [{ role: "system", content: "You are a helpful assistant." }];
+  const input = document.getElementById("input");
+  const messages = document.getElementById("messages");
+  const form = document.getElementById("form");
+  const scan = document.getElementById("scan");
+  const closeBtn = document.getElementById("close-btn");
   const chatContainer = document.getElementById("chat-container");
   const dragBar = document.getElementById("drag-bar");
-  const closeBtn = document.getElementById("close-btn");
-  const messagesDiv = document.getElementById("messages");
-  const input = document.getElementById("input");
-  const form = document.getElementById("form");
-  const scanBtn = document.getElementById("scan");
 
-  if (!chatContainer || !dragBar || !closeBtn || !form || !messagesDiv || !scanBtn || !input) {
-    console.error("One or more elements not found in DOM.");
-    return;
-  }
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
 
-  closeBtn.onclick = () => {
-    chatContainer.style.display = "none";
-  };
+    messages.innerHTML += `<div style="margin-bottom:10px;color:#1a73e8;">${text}</div>`;
+    history.push({ role: "user", content: text });
+    input.value = "";
+    input.disabled = true;
 
-  let offsetX, offsetY, isDragging = false;
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer YOUR-KEY-HERE",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "meta-llama/llama-3.1-8b-instruct:free",
+        messages: history
+      })
+    });
 
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content || "No reply.";
+    history.push({ role: "assistant", content: reply });
+    messages.innerHTML += `<div style="margin-bottom:10px;color:#111;">${reply}</div>`;
+    messages.scrollTop = messages.scrollHeight;
+
+    input.disabled = false;
+  });
+
+  scan.addEventListener("click", () => {
+    const text = document.body.innerText.slice(0, 1000);
+    input.value = `What does this page say: ${text}...`;
+  });
+
+  closeBtn.addEventListener("click", () => chatContainer.remove());
+
+  // Dragging
+  let isDragging = false, offsetX, offsetY;
   dragBar.addEventListener("mousedown", (e) => {
     isDragging = true;
     offsetX = e.clientX - chatContainer.offsetLeft;
     offsetY = e.clientY - chatContainer.offsetTop;
+    document.body.style.userSelect = "none";
   });
-
+  document.addEventListener("mouseup", () => {
+    isDragging = false;
+    document.body.style.userSelect = "auto";
+  });
   document.addEventListener("mousemove", (e) => {
     if (isDragging) {
       chatContainer.style.left = `${e.clientX - offsetX}px`;
       chatContainer.style.top = `${e.clientY - offsetY}px`;
-      chatContainer.style.bottom = "auto";
-      chatContainer.style.right = "auto";
     }
   });
-
-  document.addEventListener("mouseup", () => {
-    isDragging = false;
-  });
-
-  const appendMessage = (text, className) => {
-    const div = document.createElement("div");
-    div.className = `msg ${className}`;
-    div.textContent = text;
-    messagesDiv.appendChild(div);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  };
-
-  async function sendToAI(prompt) {
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${API_KEY}`
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          messages: [
-            { role: "system", content: "You are a helpful assistant." },
-            { role: "user", content: prompt }
-          ]
-        })
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`HTTP ${res.status}: ${err}`);
-      }
-
-      const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content?.trim() || "(No reply)";
-      appendMessage("Bot: " + reply, "bot");
-
-    } catch (err) {
-      appendMessage("Bot: [Error: " + err.message + "]", "bot");
-    }
-  }
-
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const userMsg = input.value.trim();
-    if (!userMsg) return;
-    appendMessage("You: " + userMsg, "user");
-    input.value = "";
-    sendToAI(userMsg);
-  });
-
-  scanBtn.addEventListener("click", () => {
-    const elements = [...document.body.querySelectorAll("*")];
-    const visibleText = elements
-      .filter(el => el.offsetParent !== null && el.innerText)
-      .map(el => el.innerText.trim())
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .slice(0, 1000);
-
-    appendMessage("You: [Scan Page]", "user");
-    sendToAI("Summarize this webpage text:\n" + visibleText);
-  });
-});
+})();
