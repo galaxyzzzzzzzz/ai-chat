@@ -43,7 +43,7 @@
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer sk-openrouter-...REPLACE..."
+          "Authorization": "Bearer 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"
         },
         body: JSON.stringify({
           model: "meta-llama/llama-3.1-8b-instruct:free",
