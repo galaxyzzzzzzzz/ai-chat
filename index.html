@@ -14,14 +14,15 @@
       bottom: 20px;
       right: 20px;
       width: 350px;
-      max-height: 500px;
+      height: 500px;
       box-shadow: 0 0 10px rgba(0,0,0,0.2);
       z-index: 9999;
       background: white;
       border-radius: 8px;
       overflow: hidden;
       resize: both;
-      display: none;
+      display: flex;
+      flex-direction: column;
     }
     #drag-bar {
       background: #333;
@@ -40,7 +41,7 @@
     #chat {
       display: flex;
       flex-direction: column;
-      height: 100%;
+      flex: 1;
     }
     #messages {
       flex: 1;
@@ -93,9 +94,6 @@
     const input = document.getElementById("input");
     const form = document.getElementById("form");
     const scanBtn = document.getElementById("scan");
-
-    // Auto-show container on script load (you can change this to a toggle)
-    chatContainer.style.display = "block";
 
     closeBtn.onclick = () => {
       chatContainer.style.display = "none";
